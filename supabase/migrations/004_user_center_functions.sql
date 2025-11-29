@@ -69,5 +69,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Grant execute permission to authenticated and anon users
 -- Anon is needed for signup before user is fully authenticated
 GRANT EXECUTE ON FUNCTION link_user_to_center(UUID, UUID, user_role) TO authenticated;
-GRANT EXECUTE ON FUNCTION link_user_to_center(UUID, UUID, user_role) TO anon;
 

@@ -28,34 +28,32 @@ import { Database } from '@/lib/supabase/types'
 
 type Center = Database['public']['Tables']['centers']['Row']
 
-type Role = 'blood_bank' | 'official' | ''
+type AccountType = 'blood_bank' | 'official' | ''
 
 export default function SignupPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [accountType, setAccountType] = useState<AccountType>('')
   const [centers, setCenters] = useState<Center[]>([])
-  const [loadingCenters, setLoadingCenters] = useState(true)
-  const [role, setRole] = useState<Role>('')
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    // For blood bank (center creation)
-    centerName: '',
-    district: '',
-    address: '',
-    phone: '',
-    // For official (center selection)
-    center_id: '',
-  })
+  const [loadingCenters, setLoadingCenters] = useState(false)
 
+  // Form data
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [centerName, setCenterName] = useState('')
+  const [district, setDistrict] = useState('')
+  const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [selectedCenterId, setSelectedCenterId] = useState('')
+
+  // Load centers when official account type is selected
   useEffect(() => {
-    // Only load centers if role is official
-    if (role === 'official') {
+    if (accountType === 'official') {
       loadCenters()
     }
-  }, [role])
+  }, [accountType])
 
   const loadCenters = async () => {
     setLoadingCenters(true)
@@ -65,7 +63,7 @@ export default function SignupPage() {
     } else if (result.error) {
       toast({
         title: 'Error',
-        description: 'Failed to load centers. Please refresh the page.',
+        description: 'Failed to load blood bank centers',
         variant: 'destructive',
       })
     }
@@ -76,8 +74,8 @@ export default function SignupPage() {
     e.preventDefault()
     setLoading(true)
 
-    // Validate role selected
-    if (!role) {
+    // Validation
+    if (!accountType) {
       toast({
         title: 'Error',
         description: 'Please select an account type',
@@ -87,8 +85,7 @@ export default function SignupPage() {
       return
     }
 
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
+    if (password !== confirmPassword) {
       toast({
         title: 'Error',
         description: 'Passwords do not match',
@@ -98,8 +95,7 @@ export default function SignupPage() {
       return
     }
 
-    // Validate password length
-    if (formData.password.length < 6) {
+    if (password.length < 6) {
       toast({
         title: 'Error',
         description: 'Password must be at least 6 characters',
@@ -109,22 +105,21 @@ export default function SignupPage() {
       return
     }
 
-    // Validate based on role
-    if (role === 'blood_bank') {
-      if (!formData.centerName || !formData.district) {
+    if (accountType === 'blood_bank') {
+      if (!centerName || !district) {
         toast({
           title: 'Error',
-          description: 'Please fill in center name and district',
+          description: 'Center name and district are required',
           variant: 'destructive',
         })
         setLoading(false)
         return
       }
-    } else if (role === 'official') {
-      if (!formData.center_id) {
+    } else {
+      if (!selectedCenterId) {
         toast({
           title: 'Error',
-          description: 'Please select a blood center',
+          description: 'Please select a blood bank center',
           variant: 'destructive',
         })
         setLoading(false)
@@ -132,21 +127,22 @@ export default function SignupPage() {
       }
     }
 
-    const submitFormData = new FormData()
-    submitFormData.append('email', formData.email)
-    submitFormData.append('password', formData.password)
-    submitFormData.append('role', role)
+    // Submit
+    const formData = new FormData()
+    formData.append('role', accountType)
+    formData.append('email', email)
+    formData.append('password', password)
 
-    if (role === 'blood_bank') {
-      submitFormData.append('center_name', formData.centerName)
-      submitFormData.append('district', formData.district)
-      submitFormData.append('address', formData.address)
-      submitFormData.append('phone', formData.phone)
-    } else if (role === 'official') {
-      submitFormData.append('center_id', formData.center_id)
+    if (accountType === 'blood_bank') {
+      formData.append('center_name', centerName)
+      formData.append('district', district)
+      formData.append('address', address)
+      formData.append('phone', phone)
+    } else {
+      formData.append('center_id', selectedCenterId)
     }
 
-    const result = await signup(submitFormData)
+    const result = await signup(formData)
 
     if (result?.error) {
       toast({
@@ -161,18 +157,14 @@ export default function SignupPage() {
         description: result?.message || 'Account created successfully!',
       })
 
-      // Show message about email confirmation if needed
       if (result?.requiresEmailConfirmation) {
         toast({
           title: 'Email verification required',
-          description: 'Please check your email and click the verification link before signing in.',
+          description: 'Please check your email and verify your account before signing in.',
         })
       }
 
-      // Reset loading state
       setLoading(false)
-      
-      // Redirect to login immediately
       router.push('/login')
     }
   }
@@ -180,7 +172,7 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-red-50 to-red-100 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+        <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">
             Create Account
           </CardTitle>
@@ -190,12 +182,12 @@ export default function SignupPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Role Selection */}
+            {/* Account Type Selection */}
             <div className="space-y-2">
               <Label>Account Type *</Label>
               <Select
-                value={role}
-                onValueChange={(value) => setRole(value as Role)}
+                value={accountType}
+                onValueChange={(value) => setAccountType(value as AccountType)}
                 required
                 disabled={loading}
               >
@@ -208,9 +200,9 @@ export default function SignupPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {role === 'blood_bank'
+                {accountType === 'blood_bank'
                   ? 'Create a new blood bank center'
-                  : role === 'official'
+                  : accountType === 'official'
                   ? 'Join an existing blood bank center'
                   : 'Select your account type'}
               </p>
@@ -218,22 +210,20 @@ export default function SignupPage() {
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="name@example.com"
                 required
                 disabled={loading}
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
             {/* Blood Bank: Center Creation Fields */}
-            {role === 'blood_bank' && (
+            {accountType === 'blood_bank' && (
               <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
                 <h3 className="font-semibold text-sm">Blood Bank Information</h3>
                 <div className="space-y-2">
@@ -244,10 +234,8 @@ export default function SignupPage() {
                     placeholder="e.g., National Blood Transfusion Service"
                     required
                     disabled={loading}
-                    value={formData.centerName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, centerName: e.target.value })
-                    }
+                    value={centerName}
+                    onChange={(e) => setCenterName(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -258,10 +246,8 @@ export default function SignupPage() {
                     placeholder="e.g., Colombo"
                     required
                     disabled={loading}
-                    value={formData.district}
-                    onChange={(e) =>
-                      setFormData({ ...formData, district: e.target.value })
-                    }
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -271,10 +257,8 @@ export default function SignupPage() {
                     type="text"
                     placeholder="Full address"
                     disabled={loading}
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -284,29 +268,25 @@ export default function SignupPage() {
                     type="tel"
                     placeholder="+94 XX XXX XXXX"
                     disabled={loading}
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                   />
                 </div>
               </div>
             )}
 
             {/* Official: Center Selection */}
-            {role === 'official' && (
+            {accountType === 'official' && (
               <div className="space-y-2">
-                <Label htmlFor="center_id">Blood Center *</Label>
+                <Label htmlFor="center_id">Blood Bank Center *</Label>
                 <Select
-                  value={formData.center_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, center_id: value })
-                  }
+                  value={selectedCenterId}
+                  onValueChange={setSelectedCenterId}
                   required
                   disabled={loading || loadingCenters}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select blood center" />
+                    <SelectValue placeholder="Select blood bank center" />
                   </SelectTrigger>
                   <SelectContent>
                     {loadingCenters ? (
@@ -336,17 +316,15 @@ export default function SignupPage() {
 
             {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Password *</Label>
               <Input
                 id="password"
                 type="password"
                 required
                 disabled={loading}
                 minLength={6}
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
                 Must be at least 6 characters
@@ -355,20 +333,18 @@ export default function SignupPage() {
 
             {/* Confirm Password */}
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirm Password *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 required
                 disabled={loading}
-                value={formData.confirmPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                }
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !role}>
+            <Button type="submit" className="w-full" disabled={loading || !accountType}>
               {loading ? 'Creating account...' : 'Create Account'}
             </Button>
           </form>
@@ -384,9 +360,9 @@ export default function SignupPage() {
             </Link>
           </p>
           <p className="text-xs text-center text-muted-foreground">
-            {role === 'blood_bank'
+            {accountType === 'blood_bank'
               ? 'You will become the administrator of your blood bank center.'
-              : role === 'official'
+              : accountType === 'official'
               ? 'You will be able to post and manage shortages for your center.'
               : 'By creating an account, you confirm that you are authorized.'}
           </p>

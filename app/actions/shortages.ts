@@ -215,3 +215,55 @@ export async function getCenters() {
   return { data, error: null }
 }
 
+/**
+ * Get all officials (users) for a specific center
+ * Only admins can view this
+ */
+export async function getOfficialsForCenter(centerId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Not authenticated', data: null }
+  }
+
+  // Verify user is admin of this center
+  const { data: userCenter } = await supabase
+    .from('user_centers')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('center_id', centerId)
+    .single()
+
+  if (!userCenter || userCenter.role !== 'admin') {
+    return { error: 'Only admins can view officials', data: null }
+  }
+
+  const { data, error } = await supabase
+    .from('user_centers')
+    .select(`
+      id,
+      role,
+      created_at,
+      user_id,
+      center_id,
+      centers!inner (
+        id,
+        name
+      )
+    `)
+    .eq('center_id', centerId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    return { error: error.message, data: null }
+  }
+
+  // Get user emails from auth.users (we can only get user_id, not email directly)
+  // For now, return the data we have
+  return { data, error: null }
+}
+
